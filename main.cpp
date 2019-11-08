@@ -1,14 +1,24 @@
+#if (defined (__GNUC__))
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
 #include <cpprest/http_client.h>
+#if (defined (__GNUC__))
+  #pragma GCC diagnostic pop
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <regex>
 
 int main(int argc, char * argv[]) {
 
+  // If I change this to http, it works
   auto ip = web::http::client::http_client(U("https://checkip.amazonaws.com/"))
     .request(web::http::methods::GET)
     .then([](web::http::http_response response) {
       auto statusCode = response.status_code();
+      std::cout << statusCode << std::endl;
       if (statusCode != 200) {
         std::stringstream ss;
         ss << "Error: response code was " << statusCode;
@@ -25,5 +35,4 @@ int main(int argc, char * argv[]) {
   std::cout << "isOnline = " << std::boolalpha << std::regex_search(ip, ipRegex);
 
   return 0;
-
 }

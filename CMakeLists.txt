@@ -106,6 +106,13 @@ if(UNIX)
   endif()
 endif()
 
+if(APPLE)
+  find_library(SECURITY_FRAMEWORK Security)
+  find_library(COREFOUNDATION_LIBRARY CoreFoundation)
+  add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
+  #add_definitions(-DBOOST_SYSTEM_NO_DEPRECATED)
+endif()
+
 #######################################################################
 #                              C O N A N                              #
 #######################################################################
@@ -136,9 +143,43 @@ conan_add_remote(NAME bincrafters
 conan_add_remote(NAME nrel
   URL https://api.bintray.com/conan/commercialbuilding/nrel)
 
+set(BOOST_VERSION "1.69.0")
+
+list(APPEND CONAN_OPTIONS "zlib:minizip=True")
+# You do want to rebuild packages if there's a newer recipe in the remote (which applies mostly to our own openstudio_ruby where we don't
+# bump the actual package version when we make changes) than the binaries were built with
+# 'outdated' also acts like 'missing': if no binary, will build them.
+list(APPEND CONAN_BUILD "outdated")
+
+if (MSVC)
+  # No-op
+elseif (APPLE)
+  # No-op
+else()
+  list(APPEND CONAN_OPTIONS "jsoncpp:use_pic=True")
+endif()
+
 conan_cmake_run(REQUIRES
   OpenSSL/1.1.0g@conan/stable
+
+  boost_asio/${BOOST_VERSION}@bincrafters/stable
+  boost_program_options/${BOOST_VERSION}@bincrafters/stable
+  boost_regex/${BOOST_VERSION}@bincrafters/stable
+  boost_filesystem/${BOOST_VERSION}@bincrafters/stable
+  boost_crc/${BOOST_VERSION}@bincrafters/stable
+  boost_algorithm/${BOOST_VERSION}@bincrafters/stable
+  boost_uuid/${BOOST_VERSION}@bincrafters/stable
+  boost_log/${BOOST_VERSION}@bincrafters/stable
+  boost_numeric_ublas/${BOOST_VERSION}@bincrafters/stable
+  boost_functional/${BOOST_VERSION}@bincrafters/stable
+  boost_geometry/${BOOST_VERSION}@bincrafters/stable
+  pugixml/1.9@bincrafters/stable
+  jsoncpp/1.8.4@theirix/stable
+  zlib/1.2.11@conan/stable
+  fmt/5.2.1@bincrafters/stable
+
   cpprestsdk/2.10.13@bincrafters/stable
+  websocketpp/0.8.1@bincrafters/stable # A dependency of cpprestsdk
   BASIC_SETUP CMAKE_TARGETS NO_OUTPUT_DIRS
   OPTIONS ${CONAN_OPTIONS}
   BUILD ${CONAN_BUILD}
@@ -153,12 +194,35 @@ message("CONAN_LIBS=${CONAN_LIBS}")
 #                              E X E C U T A B L E                            #
 ###############################################################################
 
+set(target_name OpenStudioApp)
+
 set(${target_name}_depends
+  CONAN_PKG::jsoncpp
+  CONAN_PKG::zlib
+  CONAN_PKG::fmt
+  CONAN_PKG::pugixml
+  CONAN_PKG::boost_filesystem
+  CONAN_PKG::boost_crc
+  CONAN_PKG::boost_regex
+  CONAN_PKG::boost_algorithm
+  CONAN_PKG::boost_uuid
+  CONAN_PKG::boost_log
+  CONAN_PKG::boost_program_options
+  CONAN_PKG::boost_numeric_ublas
+  CONAN_PKG::boost_functional
+  CONAN_PKG::boost_geometry
   CONAN_PKG::cpprestsdk
   CONAN_PKG::OpenSSL
 )
 
-set(target_name OpenStudioApp)
+if(WIN32)
+  list(APPEND ${target_name}_depends mpr)
+elseif(APPLE)
+  list(APPEND ${target_name}_depends ${SECURITY_FRAMEWORK})
+  # For cpprest
+  list(APPEND ${target_name}_depends ${COREFOUNDATION_LIBRARY})
+endif()
+
 add_executable(${target_name}
   main.cpp
 )
